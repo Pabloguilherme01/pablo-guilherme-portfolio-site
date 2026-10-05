@@ -13,3 +13,7 @@ Arquivos como `index.html` e `assets/` são artefatos de build e não são a fon
 ## Correções
 
 Corrija componentes, conteúdo e estilos no repositório-fonte e gere uma nova publicação. Evite patches manuais diretamente no HTML compilado.
+
+## Publicação automatizada
+
+O repositório-fonte possui um workflow de publicação cross-repo. Publicações automáticas gravam o SHA de origem em `SOURCE_COMMIT`. Consulte [PUBLISHING.md](PUBLISHING.md) para o contrato de proveniência e recuperação.
