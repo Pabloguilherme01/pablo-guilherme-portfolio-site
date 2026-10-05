@@ -1,0 +1,31 @@
+name: Artifact integrity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify static artifact shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -d assets
+          test ! -f package.json
+          test ! -d src
+          if [ -f SOURCE_COMMIT ]; then
+            grep -Eq '^[0-9a-f]{40}$' SOURCE_COMMIT
+          else
+            echo "::notice::Legacy artifact has no SOURCE_COMMIT yet; next automated publication will create it."
+          fi
