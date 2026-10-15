@@ -8,6 +8,8 @@ on:
       - "assets/**"
       - ".nojekyll"
       - "SOURCE_COMMIT"
+      - "404.html"
+      - ".github/workflows/artifact-integrity.yml"
       - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
@@ -21,7 +23,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  verify:
+    uses: ./.github/workflows/artifact-integrity.yml
   deploy:
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

@@ -1,6 +1,7 @@
 name: Artifact integrity
 
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
