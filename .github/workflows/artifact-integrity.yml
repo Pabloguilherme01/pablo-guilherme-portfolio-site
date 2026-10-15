@@ -15,7 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
       - name: Verify static artifact shape
         shell: bash
         run: |
@@ -29,3 +34,33 @@ jobs:
           else
             echo "::notice::Legacy artifact has no SOURCE_COMMIT yet; next automated publication will create it."
           fi
+
+      - name: Verify project paths and generated resources
+        shell: bash
+        run: |
+          node --input-type=module - . /pablo-guilherme-portfolio-site/ <<'JS'
+          import assert from 'node:assert/strict';
+          import { existsSync, readFileSync } from 'node:fs';
+          import { join } from 'node:path';
+          
+          const [directory = 'dist/public', base = '/pablo-guilherme-portfolio-site/'] = process.argv.slice(2);
+          assert.match(base, /^\/[^?#]*\/$/, 'expected an absolute project base ending in /');
+          const html = readFileSync(join(directory, 'index.html'), 'utf8');
+          assert.match(readFileSync(join(directory, 'SOURCE_COMMIT'), 'utf8').trim(), /^[a-f0-9]{40}$/, 'invalid SOURCE_COMMIT');
+          let scripts = 0;
+          for (const match of html.matchAll(/<(script|link)\b[^>]*\b(?:src|href)=["']([^"']+)["']/gi)) {
+            const [, tag, reference] = match;
+            const url = new URL(reference, 'https://artifact.invalid' + base);
+            if (url.origin !== 'https://artifact.invalid') {
+              assert.notEqual(tag.toLowerCase(), 'script', 'external script is not a generated artifact');
+              continue;
+            }
+            assert.ok(url.pathname.startsWith(base), `outside project base: ${reference}`);
+            const relative = decodeURIComponent(url.pathname.slice(base.length));
+            assert.ok(!relative.split('/').includes('..'), 'invalid asset path');
+            assert.ok(existsSync(join(directory, relative)), `missing asset: ${reference}`);
+            if (tag.toLowerCase() === 'script') scripts++;
+          }
+          assert.ok(scripts > 0, 'missing application script');
+          console.log('Static artifact assets and SOURCE_COMMIT verified');
+          JS
