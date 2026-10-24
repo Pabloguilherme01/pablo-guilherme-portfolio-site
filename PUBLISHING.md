@@ -29,3 +29,5 @@ Não há token pessoal compartilhado entre repositórios. Sem CI aprovado ou com
 - Navegador real e 320 px validados após a publicação.
 
 Não altere HTML e assets compilados manualmente: corrija a fonte e gere o build novamente.
+
+**Inicialização:** se o próprio workflow for alterado e integrado na `main`, um único evento de `push` no arquivo `sync-validated-source.yml` inicia uma verificação completa, mesmo quando o `SOURCE_COMMIT` já coincide. Atualizações normais de artefato não disparam esse job; execuções seguintes ocorrem diariamente ou manualmente.

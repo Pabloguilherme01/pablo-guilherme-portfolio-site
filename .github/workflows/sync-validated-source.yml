@@ -1,6 +1,10 @@
 name: Sync portfolio from validated source
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/sync-validated-source.yml"
   workflow_dispatch:
     inputs:
       force_rebuild:
@@ -42,7 +46,7 @@ jobs:
           fi
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
           published="$(tr -d '[:space:]' < SOURCE_COMMIT 2>/dev/null || true)"
-          if [[ "$published" == "$source_sha" && "${{ inputs.force_rebuild }}" != "true" ]]; then
+          if [[ "$published" == "$source_sha" && "${{ inputs.force_rebuild }}" != "true" && "${{ github.event_name }}" != "push" ]]; then
             echo "needs_sync=false" >> "$GITHUB_OUTPUT"
             echo "Already tracking source commit $source_sha"
           else
