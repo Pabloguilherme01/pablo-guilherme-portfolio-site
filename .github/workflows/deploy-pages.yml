@@ -46,15 +46,7 @@ jobs:
           test ! -f package.json
           test ! -d src
           test -f SOURCE_COMMIT
-          grep -Eq '^[0-9a-f]{40}
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v4
-        with:
-          path: .
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
- SOURCE_COMMIT
+          grep -Eq '^[0-9a-f]{40}$' SOURCE_COMMIT
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
