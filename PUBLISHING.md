@@ -4,7 +4,7 @@ O repositório é **somente de artefatos gerados**. A fonte continua em [pablo-g
 
 ## Fluxo sem PAT entre repositórios
 
-O workflow [Sync portfolio from validated source](.github/workflows/sync-validated-source.yml) executa diariamente ou por acionamento manual:
+O workflow [Sync portfolio from validated source](.github/workflows/sync-validated-source.yml) executa diariamente ou por acionamento manual (opcionalmente com `force_rebuild=true` para testar o build mesmo que o SHA seja igual):
 
 1. Descobre o commit de `master` e compara ao arquivo `SOURCE_COMMIT` já publicado.
 2. Se mudou, exige um resultado **CI de push aprovado para o SHA exato** no repositório público de origem.
@@ -12,6 +12,8 @@ O workflow [Sync portfolio from validated source](.github/workflows/sync-validat
 4. Registra o SHA, verifica caminhos/assets via script do próprio repositório-fonte.
 5. Sincroniza apenas o build, preservando `.github/`, `README.md` e `PUBLISHING.md`.
 6. Usa exclusivamente o `GITHUB_TOKEN` deste repositório para gravar o artefato e acionar o workflow [Deploy portfolio artifact to GitHub Pages](.github/workflows/deploy-pages.yml), que confere a integridade antes da publicação.
+
+O modo manual forçado refaz as verificações de CI e build; se o conteúdo não mudar, ele solicita uma nova verificação e publicação pelo Pages sem gerar um commit desnecessário.
 
 Não há token pessoal compartilhado entre repositórios. Sem CI aprovado ou com mudança de HEAD durante a verificação, a execução falha sem atualizar os arquivos.
 
