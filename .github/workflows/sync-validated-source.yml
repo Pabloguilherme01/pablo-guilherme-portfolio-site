@@ -1,0 +1,130 @@
+name: Sync portfolio from validated source
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Rebuild and validate the current source SHA even if unchanged'
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "23 14 * * *"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: source-artifact-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out published artifact repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Discover source HEAD and detect changes
+        id: source
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_repo="Pabloguilherme01/pablo-guilherme-portfolio"
+          source_sha="$(git ls-remote "https://github.com/${source_repo}.git" refs/heads/master | cut -f1)"
+          if [[ ! "$source_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Unable to resolve a valid source commit."
+            exit 1
+          fi
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+          published="$(tr -d '[:space:]' < SOURCE_COMMIT 2>/dev/null || true)"
+          if [[ "$published" == "$source_sha" && "${{ inputs.force_rebuild }}" != "true" ]]; then
+            echo "needs_sync=false" >> "$GITHUB_OUTPUT"
+            echo "Already tracking source commit $source_sha"
+          else
+            echo "needs_sync=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Require successful CI for the exact public source commit
+        if: ${{ steps.source.outputs.needs_sync == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          runs="$(gh api -X GET "repos/Pabloguilherme01/pablo-guilherme-portfolio/actions/workflows/ci.yml/runs" \
+            -f head_sha="$SOURCE_SHA" -f event=push -f status=success -f per_page=30)"
+          count="$(printf '%s' "$runs" | jq -r --arg sha "$SOURCE_SHA" \
+            '[.workflow_runs[] | select(.head_sha == $sha and .head_branch == "master" and .event == "push" and .conclusion == "success")] | length')"
+          if [[ "$count" -lt 1 ]]; then
+            echo "::error::No successful push CI exists for this exact source commit."
+            exit 1
+          fi
+
+      - name: Clone verified public source at exact commit
+        if: ${{ steps.source.outputs.needs_sync == 'true' }}
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch master https://github.com/Pabloguilherme01/pablo-guilherme-portfolio.git "$RUNNER_TEMP/portfolio-src"
+          actual="$(git -C "$RUNNER_TEMP/portfolio-src" rev-parse HEAD)"
+          if [[ "$actual" != "$SOURCE_SHA" ]]; then
+            echo "::error::Source HEAD moved during validation; retry at next scheduled run."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        if: ${{ steps.source.outputs.needs_sync == 'true' }}
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Build and verify the static artifact
+        if: ${{ steps.source.outputs.needs_sync == 'true' }}
+        shell: bash
+        env:
+          VITE_PUBLIC_BASE: /pablo-guilherme-portfolio-site/
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/portfolio-src"
+          corepack enable
+          corepack prepare pnpm@10.34.5 --activate
+          pnpm install --frozen-lockfile
+          pnpm exec vite build
+          printf '%s\n' "$SOURCE_SHA" > dist/public/SOURCE_COMMIT
+          cp dist/public/index.html dist/public/404.html
+          touch dist/public/.nojekyll
+          node scripts/verify-static-artifact.mjs dist/public /pablo-guilherme-portfolio-site/
+
+      - name: Synchronize artifact and trigger existing Pages deployment
+        if: ${{ steps.source.outputs.needs_sync == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          rsync -a --delete \
+            --exclude '.git/' --exclude '.github/' --exclude 'README.md' --exclude 'PUBLISHING.md' \
+            "$RUNNER_TEMP/portfolio-src/dist/public/" ./
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Artifact already matches verified source; re-run Pages verification."
+            gh workflow run deploy-pages.yml --ref main
+            exit 0
+          fi
+          gh auth setup-git
+          git commit -m "deploy: portfolio from ${SOURCE_SHA}"
+          git push origin HEAD:main
+          # GITHUB_TOKEN pushes do not trigger push workflows; dispatch directly.
+          gh workflow run deploy-pages.yml --ref main
