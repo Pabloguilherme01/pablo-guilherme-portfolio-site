@@ -2,6 +2,12 @@ name: Sync portfolio from validated source
 
 on:
   workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Rebuild and validate the current source SHA even if unchanged'
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: "23 14 * * *"
 
@@ -36,7 +42,7 @@ jobs:
           fi
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
           published="$(tr -d '[:space:]' < SOURCE_COMMIT 2>/dev/null || true)"
-          if [[ "$published" == "$source_sha" ]]; then
+          if [[ "$published" == "$source_sha" && "${{ inputs.force_rebuild }}" != "true" ]]; then
             echo "needs_sync=false" >> "$GITHUB_OUTPUT"
             echo "Already tracking source commit $source_sha"
           else
@@ -113,7 +119,8 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           if git diff --cached --quiet; then
-            echo "No artifact changes to commit."
+            echo "Artifact already matches verified source; re-run Pages verification."
+            gh workflow run deploy-pages.yml --ref main
             exit 0
           fi
           gh auth setup-git
