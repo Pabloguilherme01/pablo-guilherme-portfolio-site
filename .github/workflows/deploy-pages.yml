@@ -8,6 +8,7 @@ on:
       - "assets/**"
       - ".nojekyll"
       - "SOURCE_COMMIT"
+      - "PUBLISHING.md"
       - "404.html"
       - ".github/workflows/artifact-integrity.yml"
       - ".github/workflows/deploy-pages.yml"
@@ -33,7 +34,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Verify generated artifact
         shell: bash
         run: |
@@ -42,9 +45,16 @@ jobs:
           test -d assets
           test ! -f package.json
           test ! -d src
-          if [ -f SOURCE_COMMIT ]; then
-            grep -Eq '^[0-9a-f]{40}$' SOURCE_COMMIT
-          fi
+          test -f SOURCE_COMMIT
+          grep -Eq '^[0-9a-f]{40}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+ SOURCE_COMMIT
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

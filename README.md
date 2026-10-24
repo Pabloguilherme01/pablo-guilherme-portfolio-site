@@ -16,4 +16,4 @@ Corrija componentes, conteúdo e estilos no repositório-fonte e gere uma nova p
 
 ## Publicação automatizada
 
-O repositório-fonte possui um workflow de publicação cross-repo. Publicações automáticas gravam o SHA de origem em `SOURCE_COMMIT`. Consulte [PUBLISHING.md](PUBLISHING.md) para o contrato de proveniência e recuperação.
+O repositório-fonte possui um workflow de publicação cross-repo. Publicações automáticas gravam o SHA de origem em `SOURCE_COMMIT`. A fonte é **privada**, portanto a automação cross-repo requer credencial restrita guardada nos Secrets da fonte; consulte [PUBLISHING.md](PUBLISHING.md) antes de publicar.
