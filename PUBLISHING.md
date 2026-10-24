@@ -1,33 +1,25 @@
-# Contrato de publicação
+# Publicação do portfólio — fonte privada
 
-O repositório é **somente de artefatos gerados**. A fonte continua em [pablo-guilherme-portfolio](https://github.com/Pabloguilherme01/pablo-guilherme-portfolio), na branch `master`.
+**Situação verificada em 24/10/2026:** o código-fonte [pablo-guilherme-portfolio](https://github.com/Pabloguilherme01/pablo-guilherme-portfolio) tem visibilidade **privada**, e este repositório de artefatos é **público**. O token padrão (`GITHUB_TOKEN`) deste repositório não possui automaticamente permissão para ler a fonte privada. Uma tentativa de clonagem anônima falhou em [GitHub Actions](https://github.com/Pabloguilherme01/pablo-guilherme-portfolio-site/actions/runs/40128565505). Por isso, o workflow de sincronização sem credenciais foi **retirado**; ele não deve consumir minutos de CI com erros diários.
 
-## Fluxo sem PAT entre repositórios
+## Caminho oficial, sem publicar o código-fonte
 
-O workflow [Sync portfolio from validated source](.github/workflows/sync-validated-source.yml) executa diariamente ou por acionamento manual (opcionalmente com `force_rebuild=true` para testar o build mesmo que o SHA seja igual):
+1. Na **fonte privada** (`Pabloguilherme01/pablo-guilherme-portfolio`), a CI deve aprovar o commit de `master` que será publicado.
+2. Criar uma credencial de **escopo mínimo** com escrita em Contents **somente** para `pablo-guilherme-portfolio-site` (por exemplo, token pessoal fine-grained) e guardá-la em `Settings > Secrets and variables > Actions` do **repositório-fonte**, com nome `PORTFOLIO_PUBLISH_TOKEN`. Não compartilhar valor por chat, issue ou commit.
+3. Executar o workflow **Publish static portfolio artifact** na fonte, após confirmar o commit. Esse workflow valida o SHA-fonte, gera `dist/public`, escreve `SOURCE_COMMIT` e atualiza somente os arquivos gerados neste repositório.
+4. Este repositório executa **Deploy portfolio artifact to GitHub Pages** ao receber alterações do build. O deploy depende da validação [Artifact integrity](.github/workflows/artifact-integrity.yml) e usa o mesmo build com proveniência. O workflow também aceita acionamento manual por uma pessoa com permissão.
+5. Após publicar, confirmar GitHub Pages concluído com sucesso, conferir `SOURCE_COMMIT` com o SHA da fonte e testar mobile 320 px e desktop.
 
-1. Descobre o commit de `master` e compara ao arquivo `SOURCE_COMMIT` já publicado.
-2. Se mudou, exige um resultado **CI de push aprovado para o SHA exato** no repositório público de origem.
-3. Clona a fonte pública, confirma novamente o SHA, instala usando lockfile e gera `dist/public`.
-4. Registra o SHA, verifica caminhos/assets via script do próprio repositório-fonte.
-5. Sincroniza apenas o build, preservando `.github/`, `README.md` e `PUBLISHING.md`.
-6. Usa exclusivamente o `GITHUB_TOKEN` deste repositório para gravar o artefato e acionar o workflow [Deploy portfolio artifact to GitHub Pages](.github/workflows/deploy-pages.yml), que confere a integridade antes da publicação.
+Se preferir uma credencial de GitHub App instalada nos dois repositórios, a segurança e a complexidade precisam ser avaliadas antes de substituir o PAT. Não tornar a fonte pública apenas para contornar a autenticação.
 
-O modo manual forçado refaz as verificações de CI e build; se o conteúdo não mudar, ele solicita uma nova verificação e publicação pelo Pages sem gerar um commit desnecessário.
+## Publicação do artefato atual
 
-Não há token pessoal compartilhado entre repositórios. Sem CI aprovado ou com mudança de HEAD durante a verificação, a execução falha sem atualizar os arquivos.
+Um redeploy por atualização deste documento ou por execução manual do Pages **republica o artefato que já está neste repositório**; isso não representa um novo build da fonte privada. Verifique `SOURCE_COMMIT`. Uma publicação GitHub Pages aprovada confirma distribuição do artefato, **não** a qualidade da loja, APIs ou testes em aparelhos físicos.
 
-**Pré-requisito:** GitHub Actions deste repositório deve ter permissão de gravação em Contents e permissão de acionamento de Actions. Regras da `main` também precisam autorizar esse bot por um caminho aprovado. Não enfraqueça a proteção geral da branch por conveniência.
+## Contrato e recuperação
 
-**Migração:** o workflow antigo da fonte ainda exige `PORTFOLIO_PUBLISH_TOKEN`. Só desativá-lo após um primeiro ciclo bem-sucedido com o novo fluxo, para evitar duplicidade. Não adicione tokens a commits, arquivos, issues ou logs.
-
-## Verificação de prontidão
-
-- CI da fonte aprovado para o mesmo SHA.
-- `SOURCE_COMMIT` corresponde ao build.
-- Integridade do artefato e deploy Pages aprovados.
-- Navegador real e 320 px validados após a publicação.
-
-Não altere HTML e assets compilados manualmente: corrija a fonte e gere o build novamente.
-
-**Inicialização:** se o próprio workflow for alterado e integrado na `main`, um único evento de `push` no arquivo `sync-validated-source.yml` inicia uma verificação completa, mesmo quando o `SOURCE_COMMIT` já coincide. Atualizações normais de artefato não disparam esse job; execuções seguintes ocorrem diariamente ou manualmente.
+- Repositório-fonte privado é a única origem de código.
+- Destino público mantém apenas `index.html`, `assets/`, `404.html`, `.nojekyll`, `SOURCE_COMMIT` e arquivos administrativos.
+- O SHA escrito em `SOURCE_COMMIT` deve coincidir com o commit realmente construído.
+- Não alterar manualmente HTML/assets compilados, não relaxar proteção da `main` nem expor token em URL de clone ou nos logs.
+- Em caso de falha, consultar a etapa exata dos workflows antes de alterar credenciais ou fazer novos deploys.
